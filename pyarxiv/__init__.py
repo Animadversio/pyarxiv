@@ -35,10 +35,22 @@ class ArxivQueryError(Exception):
             message + u', caused by ' + repr(cause))
         self.cause = cause
 
+class ArxivSortBy:
+    """Structure for sort by of arXiv query"""
+    relevance = "relevance"
+    lastUpdatedDate = "lastUpdatedDate"
+    submittedDate = "submittedDate"
+
+
+class ArxivSortOrder:
+    """Structure for sort order of arXiv query"""
+    ascending = "ascending"
+    descending = "descending"
+
 
 def query(max_results=100, ids=[], categories=[],
-          title='', authors='', abstract='', journal_ref='',
-          querystring=''):
+          title='', authors='', abstract='', journal_ref='', allfields='',
+          sortBy=None, sortOrder=None, querystring='', ):
     """
     Queries arXiv.org for papers.
 
@@ -54,6 +66,9 @@ def query(max_results=100, ids=[], categories=[],
     :param str authors: Restrict search with this string in author name(s).
     :param str abstract: Restrict search with this string in abstract.
     :param str journal_ref: Restrict search to e.g. 'Phys Rev Lett'.
+    :param str allfields: search this string in all fields.
+    :param str sortBy: default None, can be "relevance", "lastUpdatedDate", "submittedDate"
+    :param str sortOrder: default None, can be either "ascending" or "descending"
     :param str querystring: Simply enter a query string ('manual mode').
                    This query string must be properly escaped as by the
                    arXiv API docs:
@@ -70,13 +85,22 @@ def query(max_results=100, ids=[], categories=[],
                                            title,
                                            authors,
                                            abstract,
-                                           journal_ref)
+                                           journal_ref,
+                                           allfields,)
+    print("Query string :", real_querystring)
     search_query = "&search_query=" + real_querystring
     query = 'max_results=%i' % max_results
     if len(real_querystring) > 0:
         query += search_query
     if len(ids) > 0:
         query += "&id_list=" + ",".join(ids)
+    if sortBy is not None:
+        assert (sortBy in ["relevance", "lastUpdatedDate", "submittedDate"])
+        query += ("&sortBy=" + sortBy)
+    if sortOrder is not None:
+        assert (sortOrder in ["ascending", "descending"])
+        query += ("&sortOrder=" + sortOrder)
+    print("Full Query: ", query)
     try:
         raw_d = urlopen(
             ARXIV_API_BASE_URI + query).read()
@@ -87,8 +111,26 @@ def query(max_results=100, ids=[], categories=[],
             'Unable to query paper with query: %s' % query, e)
 
 
+def get_querystring_for_single_field(queries, fieldabv='ti'):
+    """
+
+    :param queries: str or list of str.
+    :param fieldabv:
+    :return:
+    """
+    if len(queries) == 0:
+        return ''
+    else:
+        if isinstance(queries, list):
+            querylist = list(map(lambda x: fieldabv + ":\"" + x + "\"", queries))
+            return "(" + ' OR '.join(querylist) + ")"
+        else:
+            assert isinstance(queries, str)
+            return fieldabv + ":\"" + queries + "\""
+
+
 def get_querystring(categories=[], title='', authors='',
-                    abstract='', journal_ref=''):
+                    abstract='', journal_ref='', allfields='',):
     """
     Helper function for query() builds up a custom search query.
 
@@ -98,6 +140,9 @@ def get_querystring(categories=[], title='', authors='',
     :param str authors: authors.
     :param str abstract: abstract.
     :param str journal_ref: journal ref.
+    :param str allfields: search this string in all fields.
+    :param str sortBy: default None, can be "relevance", "lastUpdatedDate", "submittedDate"
+    :param str sortOrder: default None, can be either "ascending" or "descending"
     :return: Properly escaped search query.
     :rtype: str
     """
@@ -111,13 +156,19 @@ def get_querystring(categories=[], title='', authors='',
             list(map(lambda x: 'cat:' + x, str_categories)))
         query_elements.append("(" + used_categories + ")")
     if len(title) > 0:
-        query_elements.append("ti:\"" + title + "\"")
+        query_elements.append(get_querystring_for_single_field(title, 'ti'))
+        # query_elements.append("ti:\"" + title + "\"")
     if len(authors) > 0:
-        query_elements.append("au:\"" + authors + "\"")
+        query_elements.append(get_querystring_for_single_field(authors, 'au'))
+        # query_elements.append("au:\"" + authors + "\"")
     if len(abstract) > 0:
-        query_elements.append("abs:\"" + abstract + "\"")
+        query_elements.append(get_querystring_for_single_field(abstract, 'abs'))
+        # query_elements.append("abs:\"" + abstract + "\"")
     if len(journal_ref) > 0:
-        query_elements.append("jr:\"" + journal_ref + "\"")
+        query_elements.append(get_querystring_for_single_field(journal_ref, 'jr'))
+        # query_elements.append("jr:\"" + journal_ref + "\"")
+    if len(allfields) > 0:
+        query_elements.append(get_querystring_for_single_field(journal_ref, 'all'))
     built_query = " AND ".join(query_elements)
     return quote_plus(built_query, safe=':+')
 
