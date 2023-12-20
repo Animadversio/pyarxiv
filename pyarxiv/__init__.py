@@ -168,7 +168,7 @@ def get_querystring(categories=[], title='', authors='',
         query_elements.append(get_querystring_for_single_field(journal_ref, 'jr'))
         # query_elements.append("jr:\"" + journal_ref + "\"")
     if len(allfields) > 0:
-        query_elements.append(get_querystring_for_single_field(journal_ref, 'all'))
+        query_elements.append(get_querystring_for_single_field(allfields, 'all'))
     built_query = " AND ".join(query_elements)
     return quote_plus(built_query, safe=':+')
 

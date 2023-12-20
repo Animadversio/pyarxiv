@@ -17,6 +17,10 @@ pip install pyarxiv
 - Download papers in your code as PDF
 TODO - Do the above in the commandline
 
+## Update 2023-12-18
+- [x] Add sort by and sort order
+- [x] Add fields (all) for query, allowing multiple condition per field
+
 ## Usage
 
 ### CLI
